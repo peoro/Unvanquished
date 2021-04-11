@@ -546,7 +546,10 @@ void respawn( gentity_t *ent )
 {
 	int i;
 
-	SpawnCorpse( ent );
+	if ( g_spawnCorpses.integer )
+	{
+		SpawnCorpse( ent );
+	}
 
 	// Clients can't respawn - they must go through the class cmd
 	ent->client->pers.classSelection = PCL_NONE;

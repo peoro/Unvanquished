@@ -209,4 +209,7 @@ extern vmCvar_t g_bot_persistent;
 extern vmCvar_t g_bot_buildLayout;
 extern vmCvar_t g_bot_debug;
 
+// new tremita vars
+extern  vmCvar_t g_spawnCorpses;
+
 #endif // SG_EXTERN_H_

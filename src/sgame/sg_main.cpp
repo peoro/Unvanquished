@@ -249,6 +249,9 @@ vmCvar_t g_bot_persistent;
 vmCvar_t g_bot_debug;
 vmCvar_t g_bot_buildLayout;
 
+// new tremita vars
+vmCvar_t g_spawnCorpses;
+
 //</bot stuff>
 
 // copy cvars that can be set in worldspawn so they can be restored later
@@ -442,7 +445,10 @@ static cvarTable_t gameCvarTable[] =
 	{ &g_bot_infinite_funds, "g_bot_infinite_funds", "0",  CVAR_NORESTART, 0, false, nullptr },
 	{ &g_bot_numInGroup, "g_bot_numInGroup", "3",  CVAR_NORESTART, 0, false, nullptr },
 	{ &g_bot_debug, "g_bot_debug", "0",  CVAR_NORESTART, 0, false, nullptr },
-	{ &g_bot_buildLayout, "g_bot_buildLayout", "botbuild",  CVAR_NORESTART, 0, false, nullptr }
+	{ &g_bot_buildLayout, "g_bot_buildLayout", "botbuild",  CVAR_NORESTART, 0, false, nullptr },
+	
+	// new tremita vars
+	{ &g_spawnCorpses, "g_spawnCorpses", "1", 0, 0, true, nullptr }
 };
 
 static const size_t gameCvarTableSize = ARRAY_LEN( gameCvarTable );
