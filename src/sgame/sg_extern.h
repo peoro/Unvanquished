@@ -211,5 +211,6 @@ extern vmCvar_t g_bot_debug;
 
 // new tremita vars
 extern  vmCvar_t g_spawnCorpses;
+extern  vmCvar_t g_buildDelayMod;
 
 #endif // SG_EXTERN_H_

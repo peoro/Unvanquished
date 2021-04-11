@@ -251,6 +251,7 @@ vmCvar_t g_bot_buildLayout;
 
 // new tremita vars
 vmCvar_t g_spawnCorpses;
+vmCvar_t g_buildDelayMod;
 
 //</bot stuff>
 
@@ -448,7 +449,8 @@ static cvarTable_t gameCvarTable[] =
 	{ &g_bot_buildLayout, "g_bot_buildLayout", "botbuild",  CVAR_NORESTART, 0, false, nullptr },
 	
 	// new tremita vars
-	{ &g_spawnCorpses, "g_spawnCorpses", "1", 0, 0, true, nullptr }
+	{ &g_spawnCorpses, "g_spawnCorpses", "1", 0, 0, true, nullptr },
+	{ &g_buildDelayMod, "g_buildDelayMod", "1", 0, 0, true, nullptr }
 };
 
 static const size_t gameCvarTableSize = ARRAY_LEN( gameCvarTable );

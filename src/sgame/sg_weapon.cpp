@@ -1167,11 +1167,11 @@ static void FireBuild( gentity_t *self, dynMenu_t menu )
 			switch ( self->client->ps.persistant[ PERS_TEAM ] )
 			{
 				case TEAM_ALIENS:
-					buildTime *= ALIEN_BUILDDELAY_MOD;
+					buildTime *= ALIEN_BUILDDELAY_MOD * g_buildDelayMod.value;
 					break;
 
 				case TEAM_HUMANS:
-					buildTime *= HUMAN_BUILDDELAY_MOD;
+					buildTime *= HUMAN_BUILDDELAY_MOD * g_buildDelayMod.value;
 					break;
 
 				default:
