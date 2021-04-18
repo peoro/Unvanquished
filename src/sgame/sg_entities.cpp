@@ -45,6 +45,17 @@ basic gentity lifecycle handling
 */
 
 /**
+* @brief Free entity circular queue
+*/
+typedef struct {
+	gentity_t *queue[MAX_GENTITIES];
+	int first = 0;
+	int last = 0;	
+} c_queue;
+
+c_queue free_queue;
+
+/**
  * @brief Every entity slot is initialized like this, including the world and none
  */
 void G_InitGentityMinimal( gentity_t *entity )
@@ -87,47 +98,27 @@ gentity_t *G_NewEntity()
 {
 	// we iterate through all the entities and look for a free one that was allocated enough time ago,
 	// as well as one that died recently in case the first kind is not available
-	gentity_t *newEntity = &g_entities[ MAX_CLIENTS ];
-	gentity_t *forcedEnt = nullptr;
-	int i;
-
-	for ( i = MAX_CLIENTS; i < level.num_entities; i++, newEntity++ )
-	{
-		if ( newEntity->inuse )
-		{
-			continue;
-		}
-
+	gentity_t *newEntity = nullptr;
+	
+	//If any in the queue
+	if(free_queue.first != free_queue.last){
+		//Get first free from the queue
+		newEntity = free_queue.queue[free_queue.first];
 		// the first couple seconds of server time can involve a lot of
 		// freeing and allocating, so relax the replacement policy
 		if ( newEntity->freetime > level.startTime + 2000 && level.time - newEntity->freetime < 1000 )
 		{
-			if( ! forcedEnt || newEntity->freetime < forcedEnt->freetime ) {
-				forcedEnt = newEntity;
-			}
-			continue;
+			//update first free position
+			free_queue.first = (free_queue.first + 1) % MAX_GENTITIES;
+			//init entity end return
+			G_InitGentity( newEntity );
+			return newEntity;
 		}
-		
-		 // reuse this slot
-		 G_InitGentity( newEntity );
-		 return newEntity;
 	}
 
-	if ( i == ENTITYNUM_MAX_NORMAL )
+	if(level.num_entities == ENTITYNUM_MAX_NORMAL)
 	{
-		// no more entities available! let's force-reuse one if possible, or die
-		if ( forcedEnt )
-		{
-			if ( g_debugEntities.integer ) {
-				Log::Verbose( "Reusing Entity %i, freed at %i (%ims ago)",
-				              forcedEnt-g_entities, forcedEnt->freetime, level.time - forcedEnt->freetime );
-			}
-			// reuse this slot
-			G_InitGentity( forcedEnt );
-			return forcedEnt;
-		}
-
-		for ( i = 0; i < MAX_GENTITIES; i++ )
+		for ( int i = 0; i < MAX_GENTITIES; i++ )
 		{
 			Log::Warn( "%4i: %s", i, g_entities[ i ].classname );
 		}
@@ -135,6 +126,8 @@ gentity_t *G_NewEntity()
 		Sys::Drop( "G_Spawn: no free entities" );
 	}
 
+	//If no free entities are available, return a new one
+	newEntity = &g_entities[ level.num_entities - 1 ];
 	// open up a new slot
 	level.num_entities++;
 
@@ -188,6 +181,10 @@ void G_FreeEntity( gentity_t *entity )
 	entity->classname = "freent";
 	entity->freetime = level.time;
 	entity->inuse = false;
+
+	//Insert the new entity into queue
+	free_queue.queue[free_queue.last] = entity;
+	free_queue.last = (free_queue.last + 1) & MAX_GENTITIES;
 }
 
 
