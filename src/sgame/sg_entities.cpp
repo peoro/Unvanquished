@@ -127,11 +127,14 @@ gentity_t *G_NewEntity()
 	{
 		//Get first free from the queue
 		newEntity = free_queue.queue[ free_queue.first ];
-		free_queue.first = ( free_queue.first + 1 ) % MAX_GENTITIES;
-		//Log::Warn( "Recicle with first: %4i - last: %4i @ %4i", free_queue.first, free_queue.last, newEntity );
-		//init entity end return
-		G_InitGentity( newEntity );
-		return newEntity;
+		if ( newEntity->freetime > level.startTime + 2000 && level.time - newEntity->freetime > 1000 )
+		{
+			free_queue.first = ( free_queue.first + 1 ) % MAX_GENTITIES;
+			//Log::Warn( "Recicle with first: %4i - last: %4i @ %4i", free_queue.first, free_queue.last, newEntity );
+			//init entity end return
+			G_InitGentity( newEntity );
+			return newEntity;
+		}
 	}
 
 	if(level.num_entities == ENTITYNUM_MAX_NORMAL)
