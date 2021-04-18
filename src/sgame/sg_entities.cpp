@@ -43,7 +43,6 @@ basic gentity lifecycle handling
 
 =================================================================================
 */
-
 /**
 * @brief Free entity circular queue
 */
@@ -51,9 +50,9 @@ typedef struct {
 	gentity_t *queue[MAX_GENTITIES];
 	int first = 0;
 	int last = 0;	
-} c_queue;
+} freequeue_t;
 
-c_queue free_queue;
+freequeue_t free_queue;
 
 /**
  * @brief Every entity slot is initialized like this, including the world and none
@@ -72,12 +71,16 @@ void G_InitGentity( gentity_t *entity )
 	entity->s.number = entity - g_entities;
 	entity->r.ownerNum = ENTITYNUM_NONE;
 	entity->creationTime = level.time;
-	
+
 	if ( g_debugEntities.integer > 2 )
 	{
 		Log::Debug("Initing Entity %i", entity - g_entities );
 	}
 }
+
+/*int comp_entities (const void * a, const void * b) {
+   return ( ((gentity_t*)a)->freetime - ((gentity_t*)b)->freetime );
+}*/
 
 /*
 =================
@@ -96,33 +99,48 @@ angles and bad trails.
 */
 gentity_t *G_NewEntity()
 {
-	// we iterate through all the entities and look for a free one that was allocated enough time ago,
-	// as well as one that died recently in case the first kind is not available
-	gentity_t *newEntity = nullptr;
-	
+	int i;
+	gentity_t *newEntity;
+	newEntity = nullptr; // shut up warning
+	i = 0; // shut up warning
+
 	//If any in the queue
-	if(free_queue.first != free_queue.last){
-		//Get first free from the queue
-		newEntity = free_queue.queue[free_queue.first];
-		// the first couple seconds of server time can involve a lot of
-		// freeing and allocating, so relax the replacement policy
-		if ( newEntity->freetime > level.startTime + 2000 && level.time - newEntity->freetime < 1000 )
+	/*if(free_queue.first == free_queue.last && level.num_entities == ENTITYNUM_MAX_NORMAL)
+	{
+		newEntity = &g_entities[ MAX_CLIENTS ];
+		Log::Warn( "queue is empty and entities are many, try to recycle" );
+		for ( i = MAX_CLIENTS; i < level.num_entities; i++, newEntity++ )
 		{
-			//update first free position
-			free_queue.first = (free_queue.first + 1) % MAX_GENTITIES;
-			//init entity end return
-			G_InitGentity( newEntity );
-			return newEntity;
+			if ( newEntity->inuse )
+			{
+				continue;
+			}
+			Log::Warn( "Free entity at %4i - last: %4i", newEntity, free_queue.last, (free_queue.last + 1) % MAX_GENTITIES );
+			free_queue.queue[free_queue.last] = newEntity;
+			free_queue.last = (free_queue.last + 1) % MAX_GENTITIES;
 		}
+		qsort(free_queue.queue, MAX_GENTITIES , sizeof(gentity_t*), comp_entities);
+
+		Log::Warn( "queue size after shakedown: %4i", (free_queue.last - free_queue.first) );
+	}*/
+	if( free_queue.first != free_queue.last )
+	{
+		//Get first free from the queue
+		newEntity = free_queue.queue[ free_queue.first ];
+		free_queue.first = ( free_queue.first + 1 ) % MAX_GENTITIES;
+		//Log::Warn( "Recicle with first: %4i - last: %4i @ %4i", free_queue.first, free_queue.last, newEntity );
+		//init entity end return
+		G_InitGentity( newEntity );
+		return newEntity;
 	}
 
 	if(level.num_entities == ENTITYNUM_MAX_NORMAL)
 	{
-		for ( int i = 0; i < MAX_GENTITIES; i++ )
+		Log::Warn( "Queue first: %4i last: %4i", free_queue.first, free_queue.last );
+		for (i = 0; i < MAX_GENTITIES; i++ )
 		{
 			Log::Warn( "%4i: %s", i, g_entities[ i ].classname );
 		}
-
 		Sys::Drop( "G_Spawn: no free entities" );
 	}
 
@@ -184,7 +202,7 @@ void G_FreeEntity( gentity_t *entity )
 
 	//Insert the new entity into queue
 	free_queue.queue[free_queue.last] = entity;
-	free_queue.last = (free_queue.last + 1) & MAX_GENTITIES;
+	free_queue.last = (free_queue.last + 1) % MAX_GENTITIES;
 }
 
 
