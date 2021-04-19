@@ -99,57 +99,38 @@ angles and bad trails.
 */
 gentity_t *G_NewEntity()
 {
-	int i;
-	gentity_t *newEntity;
-	newEntity = nullptr; // shut up warning
-	i = 0; // shut up warning
-
-	//If any in the queue
-	/*if(free_queue.first == free_queue.last && level.num_entities == ENTITYNUM_MAX_NORMAL)
-	{
-		newEntity = &g_entities[ MAX_CLIENTS ];
-		Log::Warn( "queue is empty and entities are many, try to recycle" );
-		for ( i = MAX_CLIENTS; i < level.num_entities; i++, newEntity++ )
-		{
-			if ( newEntity->inuse )
-			{
-				continue;
-			}
-			Log::Warn( "Free entity at %4i - last: %4i", newEntity, free_queue.last, (free_queue.last + 1) % MAX_GENTITIES );
-			free_queue.queue[free_queue.last] = newEntity;
-			free_queue.last = (free_queue.last + 1) % MAX_GENTITIES;
-		}
-		qsort(free_queue.queue, MAX_GENTITIES , sizeof(gentity_t*), comp_entities);
-
-		Log::Warn( "queue size after shakedown: %4i", (free_queue.last - free_queue.first) );
-	}*/
+	// `outOfEntities` is true when all the available entity slots have been opened up
+	bool outOfEntities = level.num_entities == ENTITYNUM_MAX_NORMAL;
+	
 	if( free_queue.first != free_queue.last )
 	{
-		//Get first free from the queue
-		newEntity = free_queue.queue[ free_queue.first ];
-		if ( newEntity->freetime > level.startTime + 2000 && level.time - newEntity->freetime > 1000 )
+		// pop the first free entity slot from the queue
+		// only if it was freed more than a second ago or during the first two seconds of server time
+		// since the first couple seconds of server time can involve a lot of freeing and allocating and
+		// players won't be there to experience glitches yet
+		gentity_t *newEntity = free_queue.queue[ free_queue.first ];
+		if ( outOfEntities || newEntity->freetime < level.startTime + 2000 || level.time - newEntity->freetime >= 1000 )
 		{
 			free_queue.first = ( free_queue.first + 1 ) % MAX_GENTITIES;
 			//Log::Warn( "Recicle with first: %4i - last: %4i @ %4i", free_queue.first, free_queue.last, newEntity );
-			//init entity end return
+			// reuse this slot
 			G_InitGentity( newEntity );
 			return newEntity;
 		}
 	}
 
-	if(level.num_entities == ENTITYNUM_MAX_NORMAL)
+	if ( outOfEntities )
 	{
-		Log::Warn( "Queue first: %4i last: %4i", free_queue.first, free_queue.last );
-		for (i = 0; i < MAX_GENTITIES; i++ )
+		for ( int i = 0; i < MAX_GENTITIES; i++ )
 		{
 			Log::Warn( "%4i: %s", i, g_entities[ i ].classname );
 		}
+		Log::Warn( "Queue first: %4i last: %4i", free_queue.first, free_queue.last );
 		Sys::Drop( "G_Spawn: no free entities" );
 	}
 
-	//If no free entities are available, return a new one
-	newEntity = &g_entities[ level.num_entities - 1 ];
 	// open up a new slot
+	gentity_t *newEntity = &g_entities[ level.num_entities - 1 ];
 	level.num_entities++;
 
 	// let the server system know that there are more entities
@@ -203,7 +184,7 @@ void G_FreeEntity( gentity_t *entity )
 	entity->freetime = level.time;
 	entity->inuse = false;
 
-	//Insert the new entity into queue
+	// push the freed entity to the circular queue
 	free_queue.queue[free_queue.last] = entity;
 	free_queue.last = (free_queue.last + 1) % MAX_GENTITIES;
 }
