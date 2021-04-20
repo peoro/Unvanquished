@@ -49,7 +49,11 @@ basic gentity lifecycle handling
 typedef struct {
 	gentity_t *queue[MAX_GENTITIES];
 	int first = 0;
-	int last = 0;	
+	int last = 0;
+	
+	inline int size() const {
+		return (last - first + MAX_GENTITIES) % MAX_GENTITIES;
+	}
 } freequeue_t;
 
 freequeue_t free_queue;
@@ -102,6 +106,12 @@ gentity_t *G_NewEntity()
 	// `outOfEntities` is true when all the available entity slots have been opened up
 	bool outOfEntities = level.num_entities == ENTITYNUM_MAX_NORMAL;
 	
+	if ( g_debugEntities.integer > 2 )
+	{
+		Log::Debug( "Requested new entity (game time:%7i, entities:%4i, queue first:%4i, last:%4i, total:%4i)",
+		            level.time, level.num_entities, free_queue.first, free_queue.last, free_queue.size() );
+	}
+	
 	if( free_queue.first != free_queue.last )
 	{
 		// pop the first free entity slot from the queue
@@ -109,10 +119,19 @@ gentity_t *G_NewEntity()
 		// since the first couple seconds of server time can involve a lot of freeing and allocating and
 		// players won't be there to experience glitches yet
 		gentity_t *newEntity = free_queue.queue[ free_queue.first ];
+		if ( g_debugEntities.integer > 3 )
+		{
+			Log::Debug( "First available entity:%4i, free for:%7i", newEntity-g_entities, level.time - newEntity->freetime );
+		}
+		ASSERT( ! newEntity->inuse );
 		if ( outOfEntities || newEntity->freetime < level.startTime + 2000 || level.time - newEntity->freetime >= 1000 )
 		{
 			free_queue.first = ( free_queue.first + 1 ) % MAX_GENTITIES;
-			//Log::Warn( "Recicle with first: %4i - last: %4i @ %4i", free_queue.first, free_queue.last, newEntity );
+			if ( g_debugEntities.integer > 1 )
+			{
+				Log::Debug( "Reusing entity:%4i (queue first:%4i, last:%4i, total:%4i)",
+				            newEntity-g_entities, free_queue.first, free_queue.last, free_queue.size() );
+			}
 			// reuse this slot
 			G_InitGentity( newEntity );
 			return newEntity;
@@ -125,13 +144,18 @@ gentity_t *G_NewEntity()
 		{
 			Log::Warn( "%4i: %s", i, g_entities[ i ].classname );
 		}
-		Log::Warn( "Queue first: %4i last: %4i", free_queue.first, free_queue.last );
+		Log::Warn( "Queue first:%4i, last:%4i, total:%4i", free_queue.first, free_queue.last, free_queue.size() );
 		Sys::Drop( "G_Spawn: no free entities" );
 	}
 
 	// open up a new slot
 	gentity_t *newEntity = &g_entities[ level.num_entities - 1 ];
 	level.num_entities++;
+	
+	if ( g_debugEntities.integer > 1 )
+	{
+		Log::Debug( "Opening up new entity:%4i", newEntity-g_entities );
+	}
 
 	// let the server system know that there are more entities
 	trap_LocateGameData( level.num_entities, sizeof( gentity_t ),
@@ -183,10 +207,19 @@ void G_FreeEntity( gentity_t *entity )
 	entity->classname = "freent";
 	entity->freetime = level.time;
 	entity->inuse = false;
-
-	// push the freed entity to the circular queue
-	free_queue.queue[free_queue.last] = entity;
-	free_queue.last = (free_queue.last + 1) % MAX_GENTITIES;
+	
+	// push the freed entity to the circular queue (not the clients)
+	if( entity-g_entities >= MAX_CLIENTS ) {
+		free_queue.queue[free_queue.last] = entity;
+		free_queue.last = (free_queue.last + 1) % MAX_GENTITIES;
+		
+		if ( g_debugEntities.integer > 2 )
+		{
+			Log::Debug( "Added entity %4i to the queue (game time:%7i, entities:%4i, queue first:%4i, last:%4i, total:%4i)",
+			            entity-g_entities, level.time, level.num_entities, free_queue.first, free_queue.last, free_queue.size() );
+			
+		}
+	}
 }
 
 
