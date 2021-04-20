@@ -358,6 +358,27 @@ struct gentity_s
 };
 
 /**
+ * circular queue to track which entity slots have been freed, in order of removal
+ * it lets us reuse freed entity slots in O(1)
+ */
+class EntityQueue {
+	public:
+		EntityQueue();
+		int size() const;
+		void push( gentity_t *entity );
+		gentity_t *pop();
+		gentity_t *get();
+		void reset();
+		
+	private:
+		static constexpr int capacity = MAX_GENTITIES - MAX_CLIENTS;
+		
+		gentity_t *queue[capacity];
+		int first;
+		int last;
+};
+
+/**
  * client data that stays across multiple levels or map restarts
  * this is achieved by writing all the data to cvar strings at game shutdown
  * time and reading them back at connection time.  Anything added here

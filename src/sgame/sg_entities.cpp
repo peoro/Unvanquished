@@ -43,20 +43,6 @@ basic gentity lifecycle handling
 
 =================================================================================
 */
-/**
-* @brief Free entity circular queue
-*/
-typedef struct {
-	gentity_t *queue[MAX_GENTITIES];
-	int first = 0;
-	int last = 0;
-	
-	inline int size() const {
-		return (last - first + MAX_GENTITIES) % MAX_GENTITIES;
-	}
-} freequeue_t;
-
-freequeue_t free_queue;
 
 /**
  * @brief Every entity slot is initialized like this, including the world and none
@@ -82,9 +68,47 @@ void G_InitGentity( gentity_t *entity )
 	}
 }
 
-/*int comp_entities (const void * a, const void * b) {
-   return ( ((gentity_t*)a)->freetime - ((gentity_t*)b)->freetime );
-}*/
+EntityQueue::EntityQueue() {
+	reset();
+}
+int EntityQueue::size() const {
+	return (last - first + capacity) % capacity;
+}
+void EntityQueue::push( gentity_t *entity ) {
+	ASSERT_LT( size(), capacity );
+	
+	queue[last] = entity;
+	last = (last + 1) % capacity;
+	
+	if ( g_debugEntities.integer > 2 )
+	{
+		Log::Debug( "Added entity %4i to the queue (first:%4i, last:%4i, total:%4i)",
+					entity-g_entities, first, last, size() );
+	}
+}
+gentity_t *EntityQueue::pop() {
+	ASSERT_GE( size(), 0 );
+	
+	gentity_t *entity = queue[first];
+	
+	first = ( first + 1 ) % capacity;
+	
+	if ( g_debugEntities.integer > 1 )
+	{
+		Log::Debug( "Removing entity %4i from the queue (first:%4i, last:%4i, total:%4i)",
+					entity-g_entities, first, last, size() );
+	}
+	return entity;
+}
+gentity_t *EntityQueue::get() {
+	ASSERT_GE( size(), 0 );
+	
+	return queue[first];
+}
+void EntityQueue::reset() {
+	first = 0;
+	last = 0;
+}
 
 /*
 =================
@@ -108,17 +132,16 @@ gentity_t *G_NewEntity()
 	
 	if ( g_debugEntities.integer > 2 )
 	{
-		Log::Debug( "Requested new entity (game time:%7i, entities:%4i, queue first:%4i, last:%4i, total:%4i)",
-		            level.time, level.num_entities, free_queue.first, free_queue.last, free_queue.size() );
+		Log::Debug( "Requested new entity (game time:%7i, entities:%4i)", level.time, level.num_entities );
 	}
 	
-	if( free_queue.first != free_queue.last )
+	if( g_entityQueue.size() > 0 )
 	{
 		// pop the first free entity slot from the queue
 		// only if it was freed more than a second ago or during the first two seconds of server time
 		// since the first couple seconds of server time can involve a lot of freeing and allocating and
 		// players won't be there to experience glitches yet
-		gentity_t *newEntity = free_queue.queue[ free_queue.first ];
+		gentity_t *newEntity = g_entityQueue.get();
 		if ( g_debugEntities.integer > 3 )
 		{
 			Log::Debug( "First available entity:%4i, free for:%7i", newEntity-g_entities, level.time - newEntity->freetime );
@@ -126,13 +149,8 @@ gentity_t *G_NewEntity()
 		ASSERT( ! newEntity->inuse );
 		if ( outOfEntities || newEntity->freetime < level.startTime + 2000 || level.time - newEntity->freetime >= 1000 )
 		{
-			free_queue.first = ( free_queue.first + 1 ) % MAX_GENTITIES;
-			if ( g_debugEntities.integer > 1 )
-			{
-				Log::Debug( "Reusing entity:%4i (queue first:%4i, last:%4i, total:%4i)",
-				            newEntity-g_entities, free_queue.first, free_queue.last, free_queue.size() );
-			}
 			// reuse this slot
+			g_entityQueue.pop();
 			G_InitGentity( newEntity );
 			return newEntity;
 		}
@@ -144,7 +162,7 @@ gentity_t *G_NewEntity()
 		{
 			Log::Warn( "%4i: %s", i, g_entities[ i ].classname );
 		}
-		Log::Warn( "Queue first:%4i, last:%4i, total:%4i", free_queue.first, free_queue.last, free_queue.size() );
+		Log::Warn( "Queue size:%4i", g_entityQueue.size() );
 		Sys::Drop( "G_Spawn: no free entities" );
 	}
 
@@ -210,15 +228,7 @@ void G_FreeEntity( gentity_t *entity )
 	
 	// push the freed entity to the circular queue (not the clients)
 	if( entity-g_entities >= MAX_CLIENTS ) {
-		free_queue.queue[free_queue.last] = entity;
-		free_queue.last = (free_queue.last + 1) % MAX_GENTITIES;
-		
-		if ( g_debugEntities.integer > 2 )
-		{
-			Log::Debug( "Added entity %4i to the queue (game time:%7i, entities:%4i, queue first:%4i, last:%4i, total:%4i)",
-			            entity-g_entities, level.time, level.num_entities, free_queue.first, free_queue.last, free_queue.size() );
-			
-		}
+		g_entityQueue.push( entity );
 	}
 }
 
